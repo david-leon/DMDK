@@ -1,0 +1,15 @@
+# Virtualenv
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+# Distribution / packaging
+build/
+dist/
+PTR_engine.egg-info
+
+# Dependency
+depencency/
+
+# Pycharm
+.idea/
