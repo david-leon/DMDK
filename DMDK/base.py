@@ -222,9 +222,9 @@ class Module(object):
             self.input_layer = incoming
 
         self.name = name
-        self._parameters    = OrderedDict()
-        self._buffers       = OrderedDict()
-        self._modules       = OrderedDict()
+        self.parameters    = OrderedDict()
+        self.buffers       = OrderedDict()
+        self.modules       = OrderedDict()
 
     def forward(self, *input):
         """Defines the computation performed at every call.
@@ -245,17 +245,17 @@ class Module(object):
         Example:
             >> self.register_buffer('running_mean', torch.zeros(num_features))
         """
-        self._buffers[name] = tensor
+        self.buffers[name] = tensor
 
     def register_parameter(self, name, param):
         """Adds a parameter to the module.
 
         The parameter can be accessed as an attribute using given name.
         """
-        if '_parameters' not in self.__dict__:
+        if 'parameters' not in self.__dict__:
             raise AttributeError(
                 "cannot assign parameter before Module.__init__() call")
-        self._parameters[name] = param
+        self.parameters[name] = param
 
     def add_param(self, spec, shape, name):
         """
@@ -270,7 +270,7 @@ class Module(object):
         # tags['trainable'] = tags.get('trainable', True)     # todo: check these 2 lines whether should be kept finally?
         # tags['regularizable'] = tags.get('regularizable', True)
         # self.params[param] = set(tag for tag, value in tags.items() if value)
-        self._parameters[name] = param
+        self.parameters[name] = param
         return param
 
     def add_module(self, name, module):
@@ -282,21 +282,21 @@ class Module(object):
             raise KeyError("attribute already exists '{}'".format(name))
         if not isinstance(module, Module) and module is not None:
             raise TypeError("{} is not a Module subclass".format(type(module)))
-        self._modules[name] = module
+        self.modules[name] = module
 
     def _apply(self, fn):
         for module in self.children():
             module._apply(fn)
 
-        for param in self._parameters.values():
+        for param in self.parameters.values():
             if param is not None:
                 # Variables stored in modules are graph leaves, and we don't
                 # want to create copy nodes, so we have to unpack the data.
                 param = fn(param)
 
-        for key, buf in self._buffers.items():
+        for key, buf in self.buffers.items():
             if buf is not None:
-                self._buffers[key] = fn(buf)
+                self.buffers[key] = fn(buf)
         return self
 
     def apply(self, fn):
@@ -317,16 +317,16 @@ class Module(object):
         return result
 
     def __getattr__(self, name):
-        if '_parameters' in self.__dict__:
-            _parameters = self.__dict__['_parameters']
-            if name in _parameters:
-                return _parameters[name]
-        if '_buffers' in self.__dict__:
-            _buffers = self.__dict__['_buffers']
-            if name in _buffers:
-                return _buffers[name]
-        if '_modules' in self.__dict__:
-            modules = self.__dict__['_modules']
+        if 'parameters' in self.__dict__:
+            parameters = self.__dict__['parameters']
+            if name in parameters:
+                return parameters[name]
+        if 'buffers' in self.__dict__:
+            buffers = self.__dict__['buffers']
+            if name in buffers:
+                return buffers[name]
+        if 'modules' in self.__dict__:
+            modules = self.__dict__['modules']
             if name in modules:
                 return modules[name]
         raise AttributeError("'{}' object has no attribute '{}'".format(
@@ -341,12 +341,12 @@ class Module(object):
         if isinstance(value, np.ndarray):
             self.register_parameter(name, value)
         else:
-            modules = self.__dict__.get('_modules')
+            modules = self.__dict__.get('modules')
             if isinstance(value, Module):
                 if modules is None:
                     raise AttributeError(
                         "cannot assign module before Module.__init__() call")
-                remove_from(self.__dict__, self._parameters, self._buffers)
+                remove_from(self.__dict__, self.parameters, self.buffers)
                 modules[name] = value
             elif modules is not None and name in modules:
                 if value is not None:
@@ -355,19 +355,19 @@ class Module(object):
                                     .format(type(value), name))
                 modules[name] = value
             else:
-                buffers = self.__dict__.get('_buffers')
+                buffers = self.__dict__.get('buffers')
                 if buffers is not None and name in buffers:
                     buffers[name] = value
                 else:
                     object.__setattr__(self, name, value)
 
     def __delattr__(self, name):
-        if name in self._parameters:
-            del self._parameters[name]
-        elif name in self._buffers:
-            del self._buffers[name]
-        elif name in self._modules:
-            del self._modules[name]
+        if name in self.parameters:
+            del self.parameters[name]
+        elif name in self.buffers:
+            del self.buffers[name]
+        elif name in self.modules:
+            del self.modules[name]
         else:
             object.__delattr__(self, name)
 
@@ -383,13 +383,13 @@ class Module(object):
         """
         if destination is None:
             destination = OrderedDict()
-        for name, param in self._parameters.items():
+        for name, param in self.parameters.items():
             if param is not None:
                 destination[prefix + name] = param
-        for name, buf in self._buffers.items():
+        for name, buf in self.buffers.items():
             if buf is not None:
                 destination[prefix + name] = buf
-        for name, module in self._modules.items():
+        for name, module in self.modules.items():
             if module is not None:
                 module.state_dict(destination, prefix + name + '.')
         return destination
@@ -440,7 +440,7 @@ class Module(object):
         """
         if memo is None:
             memo = set()
-        for name, p in self._parameters.items():
+        for name, p in self.parameters.items():
             if p is not None and p not in memo:
                 memo.add(p)
                 yield prefix + ('.' if prefix else '') + name, p
@@ -464,7 +464,7 @@ class Module(object):
             >>         print(module)
         """
         memo = set()
-        for name, module in self._modules.items():
+        for name, module in self.modules.items():
             if module is not None and module not in memo:
                 memo.add(module)
                 yield name, module
@@ -513,7 +513,7 @@ class Module(object):
         if self not in memo:
             memo.add(self)
             yield prefix, self
-            for name, module in self._modules.items():
+            for name, module in self.modules.items():
                 submodule_prefix = prefix + ('.' if prefix else '') + name
                 for m in module.named_modules(memo, submodule_prefix):
                     yield m
@@ -523,7 +523,7 @@ class Module(object):
 
     def __repr__(self):
         tmpstr = self.__class__.__name__ + ' (\n'
-        for key, module in self._modules.items():
+        for key, module in self.modules.items():
             modstr = module.__repr__()
             modstr = _addindent(modstr, 2)
             tmpstr = tmpstr + '  (' + key + '): ' + modstr + '\n'
@@ -533,8 +533,8 @@ class Module(object):
     def __dir__(self):
         module_attrs = dir(self.__class__)
         attrs = list(self.__dict__.keys())
-        parameters = list(self._parameters.keys())
-        modules = list(self._modules.keys())
-        buffers = list(self._buffers.keys())
+        parameters = list(self.parameters.keys())
+        modules = list(self.modules.keys())
+        buffers = list(self.buffers.keys())
         keys = module_attrs + attrs + parameters + modules + buffers
         return sorted(keys)

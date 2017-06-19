@@ -572,7 +572,7 @@ if __name__ == '__main__':
             return x
 
 
-    batch_size, channel, feadim, input_length, Nclass = 1, 1, 500, None, 10
+    batch_size, channel, feadim, input_length, Nclass = 1, 1, 10, 10, 10
     kernel_size, border_mode = 3, 'same'
     filter_num = 1
 
@@ -580,11 +580,11 @@ if __name__ == '__main__':
     b = np.random.rand(filter_num).astype(floatX) * 0.0
     # W[0, 0, :, :] = np.ones((3, 3), floatX)
 
-    model = build_lasagne_model(feadim=feadim, Nclass=Nclass, kernel_size=kernel_size, border_mode=border_mode, input_length=input_length,
+    model = build_lasagne_model(feadim=feadim, Nclass=Nclass, kernel_size=kernel_size, border_mode=border_mode,
                                 W=W, b=b)
     predict_fn = compile_lasagne_model(model)
 
-    model2 = build_model_np(feadim=feadim, Nclass=Nclass, kernel_size=kernel_size, border_mode=border_mode, input_length=input_length,
+    model2 = build_model_np(feadim=feadim, Nclass=Nclass, kernel_size=kernel_size, border_mode=border_mode,
                                 W=W, b=b)
 
     # W4 = W.copy()
@@ -601,11 +601,12 @@ if __name__ == '__main__':
     run_time0, run_time2, run_time3, run_time4 = 0, 0, 0, 0
     loop = 10
     for i in range(loop):
-        X = np.random.rand(batch_size, channel, feadim, 500).astype(floatX)
+        X = np.random.rand(batch_size, channel, feadim, input_length).astype(floatX)
         X2 = X.copy()
         X3 = X[0,0,:,:]
 
         W3 = W[0, 0, :, :]
+        # W3 = W3[(slice(None, None, -1),) * 2]
 
         time0 = time.time()
         Y = predict_fn(X)
@@ -618,10 +619,10 @@ if __name__ == '__main__':
         # Y2 = Y2[0, 0, :, :]
         run_time2 += (time.time() - time0)
 
-        # time0 = time.time()
-        # Y3 = scipy.signal.convolve2d(X3, W3, mode='same', )
+        time0 = time.time()
+        Y3 = scipy.signal.convolve2d(X3, W3, mode='same', )
         # Y3 = scipy.signal.fftconvolve(X3, W3, mode='same', )
-        # run_time3 += (time.time() - time0)
+        run_time3 += (time.time() - time0)
 
         # time0 = time.time()
         # X4 = Variable(torch.Tensor(X.copy()))
@@ -633,18 +634,18 @@ if __name__ == '__main__':
 
     print('time0 =', run_time0/loop)
     print('time2 =', run_time2/loop)
-    # print('time3 =', run_time3/loop)
+    print('time3 =', run_time3/loop)
     # print('time4 =', run_time4/loop)
     print('acceleration =', run_time0/run_time2)
 
     dY12 = Y - Y2
-    # dY13 = Y - Y3
-    # dY23 = Y2 - Y3
+    dY13 = Y - Y3
+    dY23 = Y2 - Y3
     # dY14 = Y - Y4
     # dY24 = Y2 - Y4
     print('max diff(1,2) = ', np.abs(dY12).max())
-    # print('max diff(1,3) = ', np.abs(dY13).max())
-    # print('max diff(2,3) = ', np.abs(dY23).max())
+    print('max diff(1,3) = ', np.abs(dY13).max())
+    print('max diff(2,3) = ', np.abs(dY23).max())
     # print('max diff(1,4) = ', np.abs(dY14).max())
     # print('max diff(2,4) = ', np.abs(dY24).max())
 
